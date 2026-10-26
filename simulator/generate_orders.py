@@ -66,3 +66,7 @@ if __name__ == '__main__':
         producer.send(os.getenv('AZURE_EVENTHUB_NAME'), value=event)
         print('Sent:', event)
         time.sleep(2)
+
+
+df_bronze=spark.read.format('delta').load(bronze_path)
+display(df_bronze)
