@@ -1,4 +1,4 @@
-from pyspark.sql.functions import *
+import pyspark.sql.functions as F
 
 silver_path = 'abfss://ecommerce@rtecommercestrg.dfs.core.windows.net/silver'
 gold_path = 'abfss://ecommerce@rtecommercestrg.dfs.core.windows.net/gold'
@@ -20,21 +20,31 @@ df_silver=(
 # 10:01:00        10:02:00       TX      15.00        3
 
 df_gold=(
-    df.silver
+    df_silver
     .withWatermark('timestamp','1 minute')
     .groupBy(
-        window('timestamp','1 minute'),
+        F.window('timestamp','1 minute'),
         'state'
     )
     .agg(
-        sum('total_amount').alias('total_sales'),
-        sum('quantity').alias('total_items')
+        F.sum('total_amount').alias('total_sales'),
+        F.sum('quantity').alias('total_items')
     )
     .select(
-        col('window.start').alias('window_start'),
-        col('window.end').alias('window_end'),
+        F.col('window.start').alias('window_start'),
+        F.col('window.end').alias('window_end'),
         'state',
         'total_sales',
         'total_items'
     )
+)
+
+# Write to gold layer
+(
+    df_gold.writeStream
+    .format('delta')
+    .outputMode('append')
+    .trigger(availableNow=True)
+    .option('checkpointLocation',gold_path+'/_checkpoint')
+    .start(gold_path)
 )
